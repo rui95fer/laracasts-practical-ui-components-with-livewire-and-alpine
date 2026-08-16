@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Meeting;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -20,6 +21,11 @@ class DatabaseSeeder extends Seeder
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
+        ]);
+
+        Meeting::factory()->create([
+            'title' => 'Weekly product sync',
+            'notes' => 'Share updates, surface blockers, and agree on the next small step.',
         ]);
     }
 }

@@ -76,3 +76,87 @@
   ```
 
 > **Takeaway:** Understand how Livewire and Alpine divide responsibilities so you can build, review, and optimize UI components instead of blindly accepting generated code.
+
+## Episode 02 — Introducing Inline Editing
+
+- **Keep editable values in Livewire properties so a read-only-looking page can persist changes on the server.**
+  ```php
+  public Meeting $meeting;
+  public string $title = '';
+  public string $notes = '';
+
+  public function mount(): void
+  {
+      $this->meeting = Meeting::query()->firstOrFail();
+      $this->title = $this->meeting->title;
+      $this->notes = $this->meeting->notes;
+  }
+  ```
+
+- **Replace static headings and paragraphs with borderless, bound textareas so users can edit without a separate edit mode.**
+  ```blade
+  <textarea
+      wire:model.live.debounce.300ms="title"
+      rows="1"
+      placeholder="Click here to add a title"
+      class="w-full resize-none border-0 focus:outline-none focus:ring-0"
+  ></textarea>
+  ```
+
+- **Autosave only the fields that changed, and dispatch an event after the model update so the interface can show feedback.**
+  ```php
+  public function updated(string $property): void
+  {
+      if (! in_array($property, ['title', 'notes'], true)) {
+          return;
+      }
+
+      $this->meeting->update([$property => $this->{$property}]);
+      $this->dispatch('notes-saved');
+  }
+  ```
+
+- **Use Alpine to resize textareas from their `scrollHeight` on initialization and input instead of relying on browser-limited `field-sizing: content`.**
+  ```blade
+  <textarea
+      x-data="{ resize() { $el.style.height = 'auto'; $el.style.height = `${$el.scrollHeight}px`; } }"
+      x-init="resize()"
+      x-on:input="resize()"
+      rows="1"
+  ></textarea>
+  ```
+
+- **Add `wire:ignore.self` when Alpine owns the textarea height so Livewire re-renders do not reset the client-side dimensions.**
+  ```blade
+  <textarea
+      wire:model.live.debounce.300ms="notes"
+      wire:ignore.self
+      x-data="{ resize() { $el.style.height = 'auto'; $el.style.height = `${$el.scrollHeight}px`; } }"
+      x-init="resize()"
+      x-on:input="resize()"
+  ></textarea>
+  ```
+
+- **Use a delayed, targeted loading indicator to show saving only while `title` or `notes` is being persisted.**
+  ```blade
+  <div wire:loading.delay wire:target="title,notes">
+      Saving...
+  </div>
+  ```
+
+- **Clear the previous Alpine timeout before scheduling the saved indicator to disappear, otherwise continuous typing creates competing timers.**
+  ```blade
+  <div
+      x-data="{ saved: false, timeout: null }"
+      x-on:notes-saved.window="
+          clearTimeout(timeout);
+          saved = true;
+          timeout = setTimeout(() => saved = false, 3000);
+      "
+      x-show="saved"
+  >
+      Saved
+  </div>
+  ```
+
+> **Takeaway:** Seamless inline editing combines Livewire autosave with Alpine-managed textarea sizing and short-lived status feedback.
