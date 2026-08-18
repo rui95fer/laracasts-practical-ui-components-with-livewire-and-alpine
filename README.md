@@ -160,3 +160,117 @@
   ```
 
 > **Takeaway:** Seamless inline editing combines Livewire autosave with Alpine-managed textarea sizing and short-lived status feedback.
+
+## Episode 03 — Toast Notifications
+
+- **Dispatch a named Livewire event after saving a setting so the interface can give immediate feedback.**
+  ```php
+  $this->dispatch(
+      'toast',
+      message: 'Display name updated',
+      type: 'success',
+  );
+  ```
+
+- **Let Alpine own short-lived toast state and listen on `window` so one component can react to events from any Livewire action.**
+  ```blade
+  <div
+      x-data="{ show: false, message: '', type: '' }"
+      x-on:toast.window="
+          message = $event.detail.message;
+          type = $event.detail.type;
+          show = true;
+      "
+      x-show="show"
+      x-text="message"
+  ></div>
+  ```
+
+- **Extract the notification markup into a Blade component so pages can reuse the same toast UI.**
+  ```blade
+  <x-toast />
+  ```
+
+- **Map semantic types to complete class sets so one component can render success, warning, info, and error states.**
+  ```blade
+  <div
+      :class="{
+          'border-green-500 bg-green-50 text-green-800': type === 'success',
+          'border-yellow-500 bg-yellow-50 text-yellow-800': type === 'warning',
+          'border-blue-500 bg-blue-50 text-blue-800': type === 'info',
+          'border-red-500 bg-red-50 text-red-800': type === 'error',
+      }"
+  ></div>
+  ```
+
+- **Store notifications as objects with unique IDs and render them with `x-for` so multiple saves can remain visible.**
+  ```blade
+  <div
+      x-data="{ toasts: [] }"
+      x-on:toast.window="
+          const id = Date.now();
+
+          toasts.push({
+              id,
+              message: $event.detail.message,
+              type: $event.detail.type,
+              show: true,
+          });
+      "
+  >
+      <template x-for="toast in toasts" :key="toast.id">
+          <div x-text="toast.message"></div>
+      </template>
+  </div>
+  ```
+
+- **Use a reversed vertical flex column with a gap to keep the newest toast on top while older notifications move down.**
+  ```blade
+  <div class="fixed top-5 right-5 z-50 flex flex-col-reverse gap-3">
+  ```
+
+- **Bind separate entry and exit animation utilities to the toast's visibility flag so the notification can animate in and out.**
+  ```blade
+  <div :class="toast.show ? 'animate-fade-in-down' : 'animate-fade-out-up'">
+  ```
+
+- **Register custom keyframes as Tailwind animation utilities when built-in transitions do not provide enough control over entry and exit states.**
+  ```css
+  @theme {
+      --animate-fade-in-down: fade-in-down 0.5s ease-in;
+      --animate-fade-out-up: fade-out-up 0.5s ease-out;
+  }
+
+  @keyframes fade-in-down {
+      from { opacity: 0; transform: translateY(-1rem); }
+      to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fade-out-up {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-1rem); }
+  }
+  ```
+
+- **Hide a toast after a delay and remove it only after the exit animation finishes, otherwise the DOM removal cuts the animation short.**
+  ```js
+  setTimeout(() => {
+      const toast = toasts.find((toast) => toast.id === id);
+
+      if (! toast) {
+          return;
+      }
+
+      toast.show = false;
+
+      setTimeout(() => {
+          const index = toasts.findIndex((toast) => toast.id === id);
+
+          if (index !== -1) {
+              toasts.splice(index, 1);
+          }
+      }, 500);
+  }, 6000);
+  ```
+
+> **Takeaway:** A reusable toast component turns Livewire events into typed, stacked, animated feedback without coupling notification presentation to each individual setting.

@@ -58,6 +58,10 @@ class extends Component {
                 <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Introducing inline editing</p>
             </div>
 
+            <a href="{{ route('home') }}" class="text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950 dark:text-zinc-400 dark:decoration-zinc-700 dark:hover:text-white">
+                All episodes
+            </a>
+
             <div
                 x-data="{ saved: false, timeout: null }"
                 x-on:meeting-saved.window="

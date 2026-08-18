@@ -1,0 +1,48 @@
+<?php
+
+test('the home page renders the episode catalog', function () {
+    // Arrange
+    $url = route('home');
+
+    // Act
+    $response = $this->get($url);
+
+    // Assert
+    $response
+        ->assertSuccessful()
+        ->assertSeeLivewire('pages::episodes');
+});
+
+test('the home page lists every episode with its destination', function () {
+    // Arrange
+    $episodes = [
+        [
+            'label' => 'Episode 01',
+            'title' => 'Getting Started',
+            'url' => route('episodes.getting-started'),
+        ],
+        [
+            'label' => 'Episode 02',
+            'title' => 'Introducing Inline Editing',
+            'url' => route('episodes.inline-editing'),
+        ],
+        [
+            'label' => 'Episode 03',
+            'title' => 'Toast Notifications',
+            'url' => route('episodes.toast-notifications'),
+        ],
+    ];
+
+    // Act
+    $response = $this->get(route('home'));
+
+    // Assert
+    $response->assertSuccessful();
+
+    foreach ($episodes as $episode) {
+        $response
+            ->assertSee($episode['label'])
+            ->assertSee($episode['title'])
+            ->assertSee($episode['url'], false);
+    }
+});

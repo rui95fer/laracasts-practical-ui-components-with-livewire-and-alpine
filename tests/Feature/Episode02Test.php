@@ -3,12 +3,13 @@
 use App\Models\Meeting;
 use Livewire\Livewire;
 
-test('the meeting editor route renders', function () {
+test('the inline editing episode route renders', function () {
     // Arrange
     Meeting::factory()->create();
+    $url = route('episodes.inline-editing');
 
     // Act
-    $response = $this->get(route('home'));
+    $response = $this->get($url);
 
     // Assert
     $response
@@ -46,8 +47,11 @@ test('editing the title autosaves only the title and dispatches an event', funct
 
     // Assert
     $component->assertDispatched('meeting-saved');
-    expect($meeting->fresh()->title)->toBe('Updated title')
-        ->and($meeting->fresh()->notes)->toBe('Original notes');
+
+    $savedMeeting = $meeting->fresh();
+
+    expect($savedMeeting->title)->toBe('Updated title')
+        ->and($savedMeeting->notes)->toBe('Original notes');
 });
 
 test('editing the notes autosaves only the notes and dispatches an event', function () {
@@ -63,23 +67,34 @@ test('editing the notes autosaves only the notes and dispatches an event', funct
 
     // Assert
     $component->assertDispatched('meeting-saved');
-    expect($meeting->fresh()->title)->toBe('Original title')
-        ->and($meeting->fresh()->notes)->toBe('Updated notes');
+
+    $savedMeeting = $meeting->fresh();
+
+    expect($savedMeeting->title)->toBe('Original title')
+        ->and($savedMeeting->notes)->toBe('Updated notes');
 });
 
-test('an invalid title is not persisted', function () {
+test('an invalid meeting field is not persisted or dispatched', function (string $property, string $value, string $rule) {
     // Arrange
     $meeting = Meeting::factory()->create([
         'title' => 'Original title',
+        'notes' => 'Original notes',
     ]);
     $component = Livewire::test('pages::meeting-editor');
 
     // Act
-    $component->set('title', str_repeat('x', 256));
+    $component->set($property, $value);
 
     // Assert
     $component
-        ->assertHasErrors(['title' => ['max:255']])
+        ->assertHasErrors([$property => [$rule]])
         ->assertNotDispatched('meeting-saved');
-    expect($meeting->fresh()->title)->toBe('Original title');
-});
+
+    $savedMeeting = $meeting->fresh();
+
+    expect($savedMeeting->title)->toBe('Original title')
+        ->and($savedMeeting->notes)->toBe('Original notes');
+})->with([
+    'title' => ['title', str_repeat('x', 256), 'max:255'],
+    'notes' => ['notes', str_repeat('x', 5001), 'max:5000'],
+]);

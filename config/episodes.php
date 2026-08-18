@@ -1,0 +1,22 @@
+<?php
+
+return [
+    'getting-started' => [
+        'number' => '01',
+        'title' => 'Getting Started',
+        'description' => 'Understand how Livewire and Alpine divide responsibilities before building reusable UI components.',
+        'route' => 'episodes.getting-started',
+    ],
+    'inline-editing' => [
+        'number' => '02',
+        'title' => 'Introducing Inline Editing',
+        'description' => 'Persist edits with Livewire while Alpine handles textarea sizing and short-lived status feedback.',
+        'route' => 'episodes.inline-editing',
+    ],
+    'toast-notifications' => [
+        'number' => '03',
+        'title' => 'Toast Notifications',
+        'description' => 'Turn Livewire events into typed, stacked, animated feedback with a reusable toast component.',
+        'route' => 'episodes.toast-notifications',
+    ],
+];
