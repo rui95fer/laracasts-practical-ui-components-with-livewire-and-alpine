@@ -59,6 +59,54 @@
     }
 }
 
+@keyframes slide-out-left {
+    to {
+        transform: translateX(-100%);
+    }
+}
+
+@keyframes slide-in-right {
+    from {
+        transform: translateX(100%);
+    }
+}
+
+@keyframes slide-out-right {
+    to {
+        transform: translateX(100%);
+    }
+}
+
+@keyframes slide-in-left {
+    from {
+        transform: translateX(-100%);
+    }
+}
+
+html:active-view-transition-type(forward) {
+    &::view-transition-old(form) {
+        animation: 300ms ease-in-out both slide-out-left;
+    }
+
+    &::view-transition-new(form) {
+        animation: 300ms ease-in-out both slide-in-right;
+    }
+}
+
+html:active-view-transition-type(backward) {
+    &::view-transition-old(form) {
+        animation: 300ms ease-in-out both slide-out-right;
+    }
+
+    &::view-transition-new(form) {
+        animation: 300ms ease-in-out both slide-in-left;
+    }
+}
+
+::view-transition-group(form) {
+    overflow: clip;
+}
+
 @layer theme {
     .dark {
         --color-accent: var(--color-white);
@@ -89,7 +137,7 @@
 input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
-    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+    @apply outline-hidden ring-2 ring-inset ring-accent;
 }
 
 /* \[:where(&)\]:size-4 {

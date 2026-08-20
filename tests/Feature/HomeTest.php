@@ -31,6 +31,11 @@ test('the home page lists every episode with its destination', function () {
             'title' => 'Toast Notifications',
             'url' => route('episodes.toast-notifications'),
         ],
+        [
+            'label' => 'Episode 04',
+            'title' => 'Build a Multi-Step Wizard',
+            'url' => route('episodes.multi-step-wizard'),
+        ],
     ];
 
     // Act

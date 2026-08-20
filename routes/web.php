@@ -13,6 +13,9 @@ Route::livewire('episodes/inline-editing', 'pages::meeting-editor')
 Route::livewire('episodes/toast-notifications', 'pages::episodes.toast-notifications')
     ->name('episodes.toast-notifications');
 
+Route::livewire('episodes/multi-step-wizard', 'pages::episodes.multi-step-wizard')
+    ->name('episodes.multi-step-wizard');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::meeting-editor')->name('dashboard');
 });

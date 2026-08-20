@@ -19,4 +19,10 @@ return [
         'description' => 'Turn Livewire events into typed, stacked, animated feedback with a reusable toast component.',
         'route' => 'episodes.toast-notifications',
     ],
+    'multi-step-wizard' => [
+        'number' => '04',
+        'title' => 'Build a Multi-Step Wizard',
+        'description' => 'Keep a long product form focused with step-specific validation, persisted state, and a review screen.',
+        'route' => 'episodes.multi-step-wizard',
+    ],
 ];

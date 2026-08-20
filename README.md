@@ -274,3 +274,171 @@
   ```
 
 > **Takeaway:** A reusable toast component turns Livewire events into typed, stacked, animated feedback without coupling notification presentation to each individual setting.
+
+## Episode 04 — Build a Multi-Step Wizard
+
+- **Keep the wizard modal within `85vh` and make its content area scrollable so longer steps do not stretch the viewport.**
+  ```blade
+  <div class="max-h-[85vh] overflow-y-auto">
+      <!-- Current wizard step -->
+  </div>
+  ```
+
+- **Store every form field and the current step in Livewire so the server controls which part of the wizard is visible.**
+  ```php
+  public string $name = '';
+  public string $category = '';
+  public string $description = '';
+  public string $price = '';
+  public string $url = '';
+  public int $currentStep = 1;
+  ```
+
+- **Render only the active step and show a progress label so users know where they are in the wizard.**
+  ```blade
+  <p>Step {{ $currentStep }} of 3</p>
+
+  @if ($currentStep === 1)
+      <!-- Name, category, and description -->
+  @elseif ($currentStep === 2)
+      <!-- Price and URL -->
+  @else
+      <!-- Preview -->
+  @endif
+  ```
+
+- **Keep navigation explicit and mark forward or backward movement before changing `currentStep`, while `goToStep()` supports edit links from the preview.**
+  ```php
+  public function nextStep(): void
+  {
+      $this->validateStep();
+
+      if ($this->currentStep < 3) {
+          $this->transition('forward');
+          $this->currentStep++;
+      }
+  }
+
+  public function previousStep(): void
+  {
+      if ($this->currentStep > 1) {
+          $this->transition('backward');
+          $this->currentStep--;
+      }
+  }
+
+  public function goToStep(int $step): void
+  {
+      $this->transition('backward');
+      $this->currentStep = $step;
+  }
+  ```
+
+- **Validate only the fields visible in the current step before advancing, because later-step values should not block earlier progress.**
+  ```php
+  private function validateStep(): void
+  {
+      $rules = match ($this->currentStep) {
+          1 => [
+              'name' => ['required', 'string', 'max:255'],
+              'category' => ['required', 'string', 'max:255'],
+              'description' => ['required', 'string', 'min:20'],
+          ],
+          2 => [
+              'price' => ['required', 'numeric', 'gt:0'],
+              'url' => ['required', 'url'],
+          ],
+          default => [],
+      };
+
+      $this->validate($rules);
+  }
+  ```
+
+- **Render each validation error beside its input so a blocked Next action tells the user what to fix.**
+  ```blade
+  <input wire:model="name">
+
+  @error('name')
+      <p class="text-sm text-red-600">{{ $message }}</p>
+  @enderror
+  ```
+
+- **Apply `#[Session]` to every wizard property so a refresh restores both the entered values and the current step.**
+  ```php
+  use Livewire\Attributes\Session;
+
+  #[Session]
+  public string $name = '';
+
+  #[Session]
+  public int $currentStep = 1;
+  ```
+
+- **Reset the wizard after the final submission and dispatch the existing toast event to confirm the result.**
+  ```php
+  public function submit(): void
+  {
+      $this->reset();
+      $this->dispatch('toast', message: 'Product created', type: 'success');
+  }
+  ```
+
+- **Give every step the same named `wire:transition` so Livewire treats the replacing step content as one view transition.**
+  ```blade
+  <div wire:transition="form">
+      <!-- Step 1 -->
+  </div>
+
+  <div wire:transition="form">
+      <!-- Step 2 -->
+  </div>
+  ```
+
+- **Use separate view-transition keyframes for forward and backward navigation so the old form exits and the new form enters from the correct side.**
+  ```css
+  @keyframes slide-out-left {
+      to { transform: translateX(-100%); }
+  }
+
+  @keyframes slide-in-right {
+      from { transform: translateX(100%); }
+  }
+
+  @keyframes slide-out-right {
+      to { transform: translateX(100%); }
+  }
+
+  @keyframes slide-in-left {
+      from { transform: translateX(-100%); }
+  }
+
+  html:active-view-transition-type(forward) {
+      &::view-transition-old(form) {
+          animation: 300ms ease-in-out both slide-out-left;
+      }
+
+      &::view-transition-new(form) {
+          animation: 300ms ease-in-out both slide-in-right;
+      }
+  }
+
+  html:active-view-transition-type(backward) {
+      &::view-transition-old(form) {
+          animation: 300ms ease-in-out both slide-out-right;
+      }
+
+      &::view-transition-new(form) {
+          animation: 300ms ease-in-out both slide-in-left;
+      }
+  }
+  ```
+
+- **Clip the named transition group so sliding forms stay inside the modal instead of overflowing its borders.**
+  ```css
+  ::view-transition-group(form) {
+      overflow: clip;
+  }
+  ```
+
+> **Takeaway:** A Livewire wizard can combine step-specific validation, session-persisted state, preview editing, and directional view transitions without adding a client-side form framework.
