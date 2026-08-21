@@ -25,4 +25,10 @@ return [
         'description' => 'Keep a long product form focused with step-specific validation, persisted state, and a review screen.',
         'route' => 'episodes.multi-step-wizard',
     ],
+    'tag-input' => [
+        'number' => '05',
+        'title' => 'Tag Input',
+        'description' => 'Combine Livewire suggestions with Alpine keyboard navigation and create missing tags inline.',
+        'route' => 'episodes.tag-input',
+    ],
 ];

@@ -16,6 +16,9 @@ Route::livewire('episodes/toast-notifications', 'pages::episodes.toast-notificat
 Route::livewire('episodes/multi-step-wizard', 'pages::episodes.multi-step-wizard')
     ->name('episodes.multi-step-wizard');
 
+Route::livewire('episodes/tag-input', 'pages::episodes.tag-input')
+    ->name('episodes.tag-input');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::meeting-editor')->name('dashboard');
 });

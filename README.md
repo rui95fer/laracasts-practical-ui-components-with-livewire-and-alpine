@@ -442,3 +442,179 @@
   ```
 
 > **Takeaway:** A Livewire wizard can combine step-specific validation, session-persisted state, preview editing, and directional view transitions without adding a client-side form framework.
+
+## Episode 05 — Tag Input
+
+- **Load up to five matching suggestions when the search changes, and exclude selected IDs so users cannot select the same tag twice.**
+  ```php
+  public function updatedSearch(): void
+  {
+      if ($this->search === '') {
+          $this->suggestions = [];
+
+          return;
+      }
+
+      $selectedTagIds = collect($this->selectedTags)->pluck('id')->all();
+
+      $this->suggestions = Tag::query()
+          ->where('name', 'like', "%{$this->search}%")
+          ->whereNotIn('id', $selectedTagIds)
+          ->limit(5)
+          ->get(['id', 'name'])
+          ->toArray();
+  }
+  ```
+
+- **Keep selected tags as ID/name records, guard `addTag()` against duplicates, and clear the search after selection.**
+  ```php
+  public function addTag(int $tagId): void
+  {
+      $tag = Tag::query()->findOrFail($tagId);
+
+      if (collect($this->selectedTags)->contains('id', $tag->id)) {
+          return;
+      }
+
+      $this->selectedTags[] = $tag->only(['id', 'name']);
+      $this->search = '';
+      $this->suggestions = [];
+  }
+  ```
+
+- **Render selected tags with stable keys and delegate removal by ID so Livewire can reconcile the changing list.**
+  ```blade
+  @foreach ($selectedTags as $tag)
+      <span wire:key="selected-tag-{{ $tag['id'] }}">
+          {{ $tag['name'] }}
+          <button type="button" wire:click="removeTag({{ $tag['id'] }})">
+              Remove
+          </button>
+      </span>
+  @endforeach
+  ```
+
+- **Filter a removed tag ID from `selectedTags` and reindex the array so the remaining pills render predictably.**
+  ```php
+  public function removeTag(int $tagId): void
+  {
+      $this->selectedTags = collect($this->selectedTags)
+          ->reject(fn (array $tag): bool => $tag['id'] === $tagId)
+          ->values()
+          ->all();
+  }
+  ```
+
+- **Let Alpine own dropdown visibility for client-side interactions while Livewire owns the search and suggestions.**
+  ```blade
+  <div x-data="{ open: false }" x-on:click.outside="open = false">
+      <input
+          wire:model.live.debounce.300ms="search"
+          x-on:focus="open = true"
+          x-on:keydown.escape="open = false"
+      >
+
+      <div x-show="open && $wire.search.length > 0">
+          <!-- Suggestions and the create option -->
+      </div>
+  </div>
+  ```
+
+- **Track the highlighted option with a zero-based Alpine index and prevent arrow keys from moving the input caret.**
+  ```blade
+  <input
+      x-on:keydown.arrow-down.prevent="highlightedIndex = Math.min(highlightedIndex + 1, $wire.suggestions.length - 1)"
+      x-on:keydown.arrow-up.prevent="highlightedIndex = Math.max(highlightedIndex - 1, -1)"
+  >
+  ```
+
+- **Bind each suggestion's highlighted class to its loop index and give every row a stable `wire:key`.**
+  ```blade
+  @foreach ($suggestions as $index => $suggestion)
+      <button
+          type="button"
+          wire:key="suggestion-{{ $suggestion['id'] }}"
+          wire:click="addTag({{ $suggestion['id'] }})"
+          :class="{ 'bg-blue-100': highlightedIndex === {{ $index }} }"
+      >
+          {{ $suggestion['name'] }}
+      </button>
+  @endforeach
+  ```
+
+- **Handle Enter on the client, call `$wire.addTag()` for the highlighted suggestion, and reset Alpine state afterward.**
+  ```blade
+  <input x-on:keydown.enter.prevent="
+      if (highlightedIndex >= 0 && highlightedIndex < $wire.suggestions.length) {
+          $wire.addTag($wire.suggestions[highlightedIndex].id);
+          open = false;
+          highlightedIndex = -1;
+      }
+  ">
+  ```
+
+- **Create tags idempotently by trimming the input, reusing case-insensitive matches, and dispatching the existing toast event after selection.**
+  ```php
+  public function createTag(): void
+  {
+      $name = trim($this->search);
+
+      if ($name === '') {
+          return;
+      }
+
+      $tag = Tag::query()
+          ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+          ->first();
+
+      if ($tag === null) {
+          $tag = Tag::create(['name' => $name]);
+      }
+
+      if (! collect($this->selectedTags)->contains('id', $tag->id)) {
+          $this->selectedTags[] = $tag->only(['id', 'name']);
+      }
+
+      $this->search = '';
+      $this->suggestions = [];
+      $this->dispatch('toast', message: 'Tag added', type: 'success');
+  }
+  ```
+
+- **Show the create option for non-empty searches without a case-insensitive exact match, even when there are no suggestions.**
+  ```blade
+  <div x-show="open && $wire.search.length > 0">
+      @if ($canCreateTag)
+          <button type="button" wire:click="createTag">
+              Create "{{ $search }}"
+          </button>
+      @endif
+  </div>
+  ```
+
+- **Treat the create row as one extra keyboard option so arrow navigation and Enter can select either a suggestion or a new tag.**
+  ```js
+  function moveDown() {
+      const maxIndex = $wire.canCreateTag
+          ? $wire.suggestions.length
+          : $wire.suggestions.length - 1;
+
+      if (highlightedIndex < maxIndex) {
+          highlightedIndex++;
+      }
+  }
+
+  function selectHighlighted() {
+      if (highlightedIndex < 0) {
+          return;
+      }
+
+      if (highlightedIndex < $wire.suggestions.length) {
+          $wire.addTag($wire.suggestions[highlightedIndex].id);
+      } else {
+          $wire.createTag();
+      }
+  }
+  ```
+
+> **Takeaway:** A robust tag input keeps persistence and validation in Livewire while Alpine handles transient dropdown state and keyboard behavior.

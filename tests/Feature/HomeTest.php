@@ -36,6 +36,11 @@ test('the home page lists every episode with its destination', function () {
             'title' => 'Build a Multi-Step Wizard',
             'url' => route('episodes.multi-step-wizard'),
         ],
+        [
+            'label' => 'Episode 05',
+            'title' => 'Tag Input',
+            'url' => route('episodes.tag-input'),
+        ],
     ];
 
     // Act

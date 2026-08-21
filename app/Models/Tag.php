@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Models;
+
+use Database\Factories\TagFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * @property int $id
+ * @property string $name
+ */
+#[Fillable(['name'])]
+class Tag extends Model
+{
+    /** @use HasFactory<TagFactory> */
+    use HasFactory;
+}
