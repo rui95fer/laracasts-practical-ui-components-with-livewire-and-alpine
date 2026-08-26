@@ -41,6 +41,11 @@ test('the home page lists every episode with its destination', function () {
             'title' => 'Tag Input',
             'url' => route('episodes.tag-input'),
         ],
+        [
+            'label' => 'Episode 06',
+            'title' => 'Infinite Scroll',
+            'url' => route('episodes.infinite-scroll'),
+        ],
     ];
 
     // Act

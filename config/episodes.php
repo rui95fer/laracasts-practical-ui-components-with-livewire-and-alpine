@@ -31,4 +31,10 @@ return [
         'description' => 'Combine Livewire suggestions with Alpine keyboard navigation and create missing tags inline.',
         'route' => 'episodes.tag-input',
     ],
+    'infinite-scroll' => [
+        'number' => '06',
+        'title' => 'Infinite Scroll',
+        'description' => 'Load a filtered post feed page by page with Livewire islands, intersection observers, and Alpine UI state.',
+        'route' => 'episodes.infinite-scroll',
+    ],
 ];

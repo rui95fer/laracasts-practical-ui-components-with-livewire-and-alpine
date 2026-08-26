@@ -618,3 +618,150 @@
   ```
 
 > **Takeaway:** A robust tag input keeps persistence and validation in Livewire while Alpine handles transient dropdown state and keyboard behavior.
+
+## Episode 06 — Infinite Scroll
+
+- **Fetch one page at a time from a computed property so each infinite-scroll request retrieves only the next batch of posts.**
+  ```php
+  #[Computed]
+  public function posts()
+  {
+      return Post::query()
+          ->category($this->category)
+          ->search($this->search)
+          ->latest()
+          ->forPage($this->page, $this->perPage)
+          ->get();
+  }
+  ```
+
+- **Do not increase `perPage` to fake appending, because every request would re-query and return all previously loaded posts.**
+  ```php
+  // Avoid sending the entire accumulated feed on every request.
+  $this->perPage += 5;
+  ```
+
+- **Use a named Livewire island with append mode so new results are added to the existing feed instead of replacing it.**
+  ```blade
+  @island(name: 'posts')
+      @foreach ($this->posts as $post)
+          <article wire:key="post-{{ $post->id }}">
+              {{ $post->title }}
+          </article>
+      @endforeach
+  @endisland
+
+  <button wire:click="loadMore" wire:island.append="posts">
+      Load more
+  </button>
+  ```
+
+- **Increment the page number in `loadMore()` so the island requests the next page without changing the page size.**
+  ```php
+  public function loadMore(): void
+  {
+      $this->page++;
+  }
+  ```
+
+- **Replace the manual load button with `wire:intersect` when the next page should load as the user reaches the feed's end.**
+  ```blade
+  <div wire:intersect="loadMore" class="h-12"></div>
+  ```
+
+- **Scope a loading indicator to `loadMore` so slow requests give feedback without affecting unrelated component updates.**
+  ```blade
+  <div wire:loading wire:target="loadMore">
+      Loading more posts...
+  </div>
+  ```
+
+- **Reset pagination and re-render the posts island whenever a search or category filter changes, then return the user to the top of the results.**
+  ```php
+  public function updated(string $property): void
+  {
+      if (! in_array($property, ['search', 'category'], true)) {
+          return;
+      }
+
+      $this->page = 1;
+      $this->renderIsland('posts');
+      $this->dispatch('scroll-to-top');
+  }
+  ```
+
+- **Use a debounced live model for search so the feed updates while typing without sending a request for every keystroke.**
+  ```blade
+  <input
+      wire:model.live.debounce.300ms="search"
+      placeholder="Search posts"
+  >
+  ```
+
+- **Set the category from filter buttons and use an empty string to represent all categories.**
+  ```blade
+  <p>{{ $category !== '' ? $category : 'All Categories' }}</p>
+
+  <button type="button" wire:click="$set('category', '')">
+      All Categories
+  </button>
+  <button type="button" wire:click="$set('category', 'technology')">
+      Technology
+  </button>
+  ```
+
+- **Let Alpine manage client-only scroll state by showing a smooth scroll-to-top button only after the user has moved down the page.**
+  ```blade
+  <div
+      x-data="{ showScrollTop: false }"
+      x-on:scroll.window="showScrollTop = window.scrollY > 500"
+      x-on:scroll-to-top.window="window.scrollTo({ top: 0, behavior: 'smooth' })"
+  >
+      <button
+          x-show="showScrollTop"
+          x-on:click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+      >
+          Scroll to top
+      </button>
+  </div>
+  ```
+
+- **Dispatch an end-of-feed event when the last page contains fewer posts than requested so the client can stop requesting more posts.**
+  ```php
+  public function loadMore(): void
+  {
+      $this->page++;
+
+      if ($this->posts->count() < $this->perPage) {
+          $this->dispatch('end-of-feed');
+      }
+  }
+  ```
+
+- **Listen for the end-of-feed event in Alpine and replace the intersection sentinel with a clear message.**
+  ```blade
+  <div
+      x-data="{ ended: false }"
+      x-on:end-of-feed.window="ended = true"
+  >
+      <div x-show="! ended" wire:intersect="loadMore"></div>
+      <p x-show="ended">You've reached the end.</p>
+  </div>
+  ```
+
+- **Show an empty state when the current filter has no posts instead of rendering an empty feed.**
+  ```blade
+  @if ($this->posts->isEmpty())
+      <p>No posts found.</p>
+  @else
+      @island(name: 'posts')
+          @foreach ($this->posts as $post)
+              <article wire:key="post-{{ $post->id }}">
+                  {{ $post->title }}
+              </article>
+          @endforeach
+      @endisland
+  @endif
+  ```
+
+> **Takeaway:** Efficient infinite scroll combines page-sized queries with Livewire island appends, while Alpine handles viewport-driven and transient UI state.
