@@ -37,4 +37,10 @@ return [
         'description' => 'Load a filtered post feed page by page with Livewire islands, intersection observers, and Alpine UI state.',
         'route' => 'episodes.infinite-scroll',
     ],
+    'notification-center' => [
+        'number' => '07',
+        'title' => 'Notification Center',
+        'description' => 'Keep a notification dropdown current with Livewire polling, islands, unread state, and Alpine interactions.',
+        'route' => 'episodes.notification-center',
+    ],
 ];

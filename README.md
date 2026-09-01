@@ -765,3 +765,180 @@
   ```
 
 > **Takeaway:** Efficient infinite scroll combines page-sized queries with Livewire island appends, while Alpine handles viewport-driven and transient UI state.
+
+## Episode 07 — Notification Center
+
+- **Use a computed property for the initial feed so the component loads only the latest 100 notifications when the dropdown needs them.**
+  ```php
+  use Livewire\Attributes\Computed;
+
+  #[Computed]
+  public function notifications()
+  {
+      return Notification::query()
+          ->latest('id')
+          ->limit(100)
+          ->get();
+  }
+  ```
+
+- **Let Alpine own dropdown visibility because toggling, outside clicks, and Escape do not need a server request.**
+  ```blade
+  <div
+      x-data="{ open: false }"
+      x-on:click.outside="open = false"
+      x-on:keydown.escape.window="open = false"
+  >
+      <button type="button" x-on:click="open = ! open">Notifications</button>
+      <div x-show="open">
+          <!-- Notification list -->
+      </div>
+  </div>
+  ```
+
+- **Wrap the list in a named island so refreshing notifications does not recreate older items or the surrounding dropdown.**
+  ```blade
+  <div wire:poll.10s="checkForNew">
+      @island(name: 'notifications')
+          @forelse ($this->notifications as $notification)
+              <x-notification-item
+                  :notification="$notification"
+                  wire:key="notification-{{ $notification->id }}"
+              />
+          @empty
+              <p>No notifications yet.</p>
+          @endforelse
+      @endisland
+  </div>
+  ```
+
+- **Track the newest loaded ID and prepend only newer rows, rendering the island before advancing the cursor so the computed property sees the previous ID.**
+  ```php
+  public ?int $latestLoadedId = null;
+
+  public function mount(): void
+  {
+      $this->latestLoadedId = $this->notifications->first()?->id;
+  }
+
+  public function checkForNew(): void
+  {
+      $latestId = Notification::query()->max('id');
+
+      if ($latestId === null || ($this->latestLoadedId !== null && $latestId <= $this->latestLoadedId)) {
+          return;
+      }
+
+      $this->renderIsland('notifications', mode: 'prepend');
+      $this->latestLoadedId = $latestId;
+  }
+  ```
+
+- **Switch the computed query to an ID cursor after initialization so each poll retrieves only notifications added since the last check.**
+  ```php
+  #[Computed]
+  public function notifications()
+  {
+      $query = Notification::query()->latest('id');
+
+      return $this->latestLoadedId === null
+          ? $query->limit(100)->get()
+          : $query->where('id', '>', $this->latestLoadedId)->get();
+  }
+  ```
+
+- **Use a grid-row animation for new items because CSS cannot interpolate `height` from zero to `auto`.**
+  ```css
+  @theme {
+      --animate-slide-down: slide-down 0.5s ease-out forwards;
+  }
+
+  @keyframes slide-down {
+      from { grid-template-rows: 0fr; }
+      to { grid-template-rows: 1fr; }
+  }
+  ```
+
+- **Keep the animated content inside an overflowing child with `min-height: 0`, which makes the grid animation expand cleanly.**
+  ```blade
+  <div class="grid animate-slide-down">
+      <div class="min-h-0 overflow-hidden">
+          <x-notification-item :notification="$notification" />
+      </div>
+  </div>
+  ```
+
+- **Keep the unread count in Livewire and recalculate it from `read_at` on mount and after polling.**
+  ```php
+  public int $unreadCount = 0;
+
+  private function updateUnreadCount(): void
+  {
+      $this->unreadCount = Notification::query()
+          ->whereNull('read_at')
+          ->count();
+  }
+  ```
+
+- **Cap the badge at `99+` and hide it when the count is zero so the header stays compact.**
+  ```blade
+  <span x-cloak x-show="$wire.unreadCount > 0">
+      <span x-text="$wire.unreadCount > 99 ? '99+' : $wire.unreadCount"></span>
+  </span>
+  ```
+
+- **Mirror `read_at` into Alpine and bind unread styling locally so a notification can change appearance without a full list render.**
+  ```blade
+  <div
+      x-data="{ read: @js($notification->read_at !== null) }"
+      :class="{ 'bg-blue-50': ! read }"
+      x-on:click="
+          if (! read) {
+              read = true;
+              $wire.markAsRead({{ $notification->id }});
+          }
+      "
+  >
+      <span x-show="! read" class="size-2 rounded-full bg-blue-500"></span>
+      {{ $notification->message }}
+  </div>
+  ```
+
+- **Make individual read updates renderless because Alpine already handles the visual change and the server only needs to persist it.**
+  ```php
+  use Livewire\Attributes\Renderless;
+
+  #[Renderless]
+  public function markAsRead(int $notificationId): void
+  {
+      Notification::query()
+          ->whereKey($notificationId)
+          ->whereNull('read_at')
+          ->update(['read_at' => now()]);
+
+      $this->updateUnreadCount();
+  }
+  ```
+
+- **Use one renderless bulk action to update every unread row and dispatch an event for Alpine to synchronize each item.**
+  ```php
+  #[Renderless]
+  public function markAllAsRead(): void
+  {
+      Notification::query()->whereNull('read_at')->update(['read_at' => now()]);
+      $this->unreadCount = 0;
+      $this->dispatch('notifications-marked-read');
+  }
+  ```
+
+- **Listen for the bulk-read event on `window` so each item updates its local state even when the parent does not re-render.**
+  ```blade
+  <div
+      x-data="{ read: @js($notification->read_at !== null) }"
+      x-on:notifications-marked-read.window="read = true"
+  >
+      <!-- Notification content -->
+  </div>
+  ```
+
+> **Takeaway:** Use Livewire for notification queries, polling, persistence, and counts, while Alpine handles dropdown state, optimistic visual updates, and animations.

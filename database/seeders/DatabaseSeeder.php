@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Meeting;
+use App\Models\Notification;
 use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
@@ -22,9 +23,16 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
+        $demoUser = User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
+        ]);
+
+        $notificationActors = User::factory()->createMany([
+            ['name' => 'Alex Rivera', 'email' => 'alex@example.com'],
+            ['name' => 'Maya Chen', 'email' => 'maya@example.com'],
+            ['name' => 'Jordan Bell', 'email' => 'jordan@example.com'],
+            ['name' => 'Sam Okafor', 'email' => 'sam@example.com'],
         ]);
 
         Meeting::factory()->create([
@@ -50,6 +58,21 @@ class DatabaseSeeder extends Seeder
                     'title' => Str::headline($category).' field note '.($sequence->index + 1),
                     'excerpt' => "A practical {$category} post with useful UI details for the feed demo.",
                     'category' => $category,
+                ];
+            })
+            ->create();
+
+        Notification::factory()
+            ->count(12)
+            ->for($demoUser, 'user')
+            ->state(fn (): array => [
+                'actor_id' => $notificationActors->random()->id,
+            ])
+            ->sequence(function (Sequence $sequence): array {
+                return [
+                    'read_at' => $sequence->index < 5
+                        ? null
+                        : now()->subMinutes(($sequence->index + 1) * 4),
                 ];
             })
             ->create();

@@ -46,6 +46,11 @@ test('the home page lists every episode with its destination', function () {
             'title' => 'Infinite Scroll',
             'url' => route('episodes.infinite-scroll'),
         ],
+        [
+            'label' => 'Episode 07',
+            'title' => 'Notification Center',
+            'url' => route('episodes.notification-center'),
+        ],
     ];
 
     // Act
