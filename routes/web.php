@@ -25,6 +25,12 @@ Route::livewire('episodes/infinite-scroll', 'pages::episodes.infinite-scroll')
 Route::livewire('episodes/notification-center', 'pages::episodes.notification-center')
     ->name('episodes.notification-center');
 
+Route::livewire('episodes/dynamic-search', 'pages::episodes.dynamic-search')
+    ->name('episodes.dynamic-search');
+
+Route::livewire('posts/{post}', 'pages::posts.show')
+    ->name('posts.show');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::meeting-editor')->name('dashboard');
 });

@@ -43,4 +43,10 @@ return [
         'description' => 'Keep a notification dropdown current with Livewire polling, islands, unread state, and Alpine interactions.',
         'route' => 'episodes.notification-center',
     ],
+    'dynamic-search' => [
+        'number' => '08',
+        'title' => 'Dynamic Search',
+        'description' => 'Search published posts with Livewire while Alpine handles dropdown state, keyboard navigation, and recent searches.',
+        'route' => 'episodes.dynamic-search',
+    ],
 ];

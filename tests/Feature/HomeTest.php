@@ -51,6 +51,11 @@ test('the home page lists every episode with its destination', function () {
             'title' => 'Notification Center',
             'url' => route('episodes.notification-center'),
         ],
+        [
+            'label' => 'Episode 08',
+            'title' => 'Dynamic Search',
+            'url' => route('episodes.dynamic-search'),
+        ],
     ];
 
     // Act

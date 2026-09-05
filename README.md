@@ -942,3 +942,255 @@
   ```
 
 > **Takeaway:** Use Livewire for notification queries, polling, persistence, and counts, while Alpine handles dropdown state, optimistic visual updates, and animations.
+
+## Episode 08 — Dynamic Search
+
+- **Search only after the input has at least two characters, matching the title, excerpt, content, or author before returning the ten latest published posts.**
+  ```php
+  #[Computed]
+  public function results()
+  {
+      if (strlen($this->search) < 2) {
+          return collect();
+      }
+
+      return Post::query()
+          ->where('published', true)
+          ->where(function (Builder $query): void {
+              $term = "%{$this->search}%";
+
+              $query
+                  ->where('title', 'like', $term)
+                  ->orWhere('excerpt', 'like', $term)
+                  ->orWhere('content', 'like', $term)
+                  ->orWhereHas('author', fn (Builder $author) => $author->where('name', 'like', $term));
+          })
+          ->latest()
+          ->limit(10)
+          ->get();
+  }
+  ```
+
+- **Let Alpine control whether the dropdown is open while Livewire owns the live search value, loading state, and clear action.**
+  ```blade
+  <div x-data="{ open: false }" x-on:click.outside="open = false">
+      <input
+          wire:model.live="search"
+          x-on:focus="open = true"
+          x-on:keydown.escape="open = false"
+      >
+
+      <div x-show="open">
+          <span wire:loading wire:target="search">Searching...</span>
+          <button type="button" wire:click="$set('search', '')">Clear</button>
+      </div>
+  </div>
+  ```
+
+- **Use `-1` as the no-selection state and prevent arrow keys from moving the input caret so navigation can use a zero-based index.**
+  ```blade
+  <div
+      x-data="{
+          highlightedIndex: -1,
+          moveUp() {
+              if (this.highlightedIndex > 0) {
+                  this.highlightedIndex--;
+              }
+          },
+          moveDown() {
+              if (this.$refs.resultsList.children[this.highlightedIndex + 1]) {
+                  this.highlightedIndex++;
+              }
+          },
+      }"
+  >
+      <input
+          x-on:keydown.arrow-down.prevent="moveDown()"
+          x-on:keydown.arrow-up.prevent="moveUp()"
+      >
+
+      <ul x-ref="resultsList"></ul>
+  </div>
+  ```
+
+- **Use the same index for mouse and keyboard interaction, and give the active row a visual class plus a stable `wire:key`.**
+  ```blade
+  @foreach ($this->results as $index => $post)
+      <li wire:key="search-result-{{ $post->id }}">
+          <button
+              type="button"
+              x-on:mouseenter="highlightedIndex = {{ $index }}"
+              :class="{ 'bg-blue-50': highlightedIndex === {{ $index }} }"
+          >
+              {{ $post->title }}
+          </button>
+      </li>
+  @endforeach
+  ```
+
+- **Scroll the active result into view after changing the index, using `nearest` to avoid jumping the whole list.**
+  ```js
+  moveDown() {
+      if (this.$refs.resultsList.children[this.highlightedIndex + 1]) {
+          this.highlightedIndex++;
+          this.$nextTick(() => this.scrollToHighlighted());
+      }
+  }
+
+  scrollToHighlighted() {
+      this.$refs.resultsList.children[this.highlightedIndex]
+          ?.scrollIntoView({ block: 'nearest' });
+  }
+  ```
+
+- **Add a small dropdown footer that teaches the keyboard shortcut so keyboard navigation is discoverable.**
+  ```blade
+  <footer class="border-t px-4 py-2 text-xs text-zinc-500">
+      Use the arrow keys to navigate
+  </footer>
+  ```
+
+- **Escape the original text before wrapping case-insensitive matches in `<mark>`, and skip highlighting until the query is meaningful.**
+  ```php
+  public function highlightMatch(string $text): string
+  {
+      $search = trim($this->search);
+
+      if (strlen($search) < 2) {
+          return e($text);
+      }
+
+      return preg_replace(
+          '/' . preg_quote($search, '/') . '/i',
+          '<mark class="bg-yellow-200">$0</mark>',
+          e($text),
+      ) ?? e($text);
+  }
+  ```
+
+- **Render highlighted output as HTML only at the display boundary because `highlightMatch()` has already escaped the original text.**
+  ```blade
+  <h3>{!! $this->highlightMatch($post->title) !!}</h3>
+  <p>{!! $this->highlightMatch($this->getSnippet($post)) !!}</p>
+  <p>{!! $this->highlightMatch($post->author->name) !!}</p>
+  ```
+
+- **Prefer the excerpt when it contains the query; otherwise use `Str::excerpt()` around a content match so deep matches have useful context.**
+  ```php
+  public function getSnippet(Post $post): string
+  {
+      if (Str::contains($post->excerpt, $this->search, ignoreCase: true)) {
+          return $post->excerpt;
+      }
+
+      if (Str::contains($post->content, $this->search, ignoreCase: true)) {
+          return Str::excerpt($post->content, $this->search, ['radius' => 50]);
+      }
+
+      return $post->excerpt;
+  }
+  ```
+
+- **Use `#[Session]` for recent searches when they should survive refreshes without adding a database table or changing the URL.**
+  ```php
+  use Livewire\Attributes\Session;
+
+  #[Session]
+  public array $recentSearches = [];
+  ```
+
+- **Normalize recent terms case-insensitively, move repeated terms to the front, and keep only the five most recent entries.**
+  ```php
+  #[Renderless]
+  public function addToRecentSearches(string $term): void
+  {
+      $term = trim($term);
+
+      if (strlen($term) < 2) {
+          return;
+      }
+
+      $this->recentSearches = collect([$term, ...$this->recentSearches])
+          ->unique(fn (string $search): string => mb_strtolower($search))
+          ->take(5)
+          ->values()
+          ->all();
+  }
+  ```
+
+- **Keep clearing recent searches renderless because it changes session state without changing the current results markup.**
+  ```php
+  #[Renderless]
+  public function clearRecentSearches(): void
+  {
+      $this->recentSearches = [];
+  }
+  ```
+
+- **Show recent searches when the query is empty or too short, and let users restore a term or clear the whole list.**
+  ```blade
+  @if (strlen($search) < 2)
+      @forelse ($recentSearches as $term)
+          <button type="button" x-on:click="$wire.useSearch(@js($term))">
+              {{ $term }}
+          </button>
+      @empty
+          <p>Type at least two characters to search.</p>
+      @endforelse
+
+      @if ($recentSearches !== [])
+          <button type="button" wire:click="clearRecentSearches">
+              Clear recent searches
+          </button>
+      @endif
+  @else
+      <!-- Results or no-results state -->
+  @endif
+  ```
+
+- **When a recent term is selected, assign it to `search` and send it through the same recent-search path.**
+  ```php
+  public function useSearch(string $term): void
+  {
+      $this->search = $term;
+      $this->addToRecentSearches($term);
+  }
+  ```
+
+- **On Enter or click, use the highlighted result only when the index is non-negative, save the query, close the dropdown, and navigate to the result.**
+  ```blade
+  <div x-data="{
+      open: false,
+      highlightedIndex: -1,
+      selectHighlighted() {
+          if (this.highlightedIndex < 0) {
+              return;
+          }
+
+          const result = $wire.results[this.highlightedIndex];
+
+          if (! result) {
+              return;
+          }
+
+          $wire.addToRecentSearches($wire.search);
+          this.open = false;
+          window.location.href = result.url;
+      },
+  }">
+      <input x-on:keydown.enter.prevent="selectHighlighted()">
+      <button type="button" x-on:click="selectHighlighted()">Open selected result</button>
+  </div>
+  ```
+
+- **Watch `$wire.search` and reset the highlight whenever the term changes so a new result set cannot inherit a stale index.**
+  ```blade
+  <div
+      x-data="{ highlightedIndex: -1 }"
+      x-init="$watch('$wire.search', () => highlightedIndex = -1)"
+  >
+      <!-- Search input and results -->
+  </div>
+  ```
+
+> **Takeaway:** A polished inline search keeps querying and persistence in Livewire while Alpine handles immediate dropdown, keyboard, pointer, and scrolling feedback.

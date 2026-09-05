@@ -20,7 +20,9 @@ class PostFactory extends Factory
         return [
             'title' => fake()->sentence(6),
             'excerpt' => fake()->paragraph(2),
+            'content' => fake()->paragraphs(4, true),
             'category' => fake()->randomElement(['technology', 'lifestyle', 'design']),
+            'published' => true,
         ];
     }
 }

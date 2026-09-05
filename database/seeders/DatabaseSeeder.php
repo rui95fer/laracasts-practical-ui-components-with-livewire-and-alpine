@@ -51,13 +51,16 @@ class DatabaseSeeder extends Seeder
 
         Post::factory()
             ->count(24)
-            ->sequence(function (Sequence $sequence): array {
+            ->sequence(function (Sequence $sequence) use ($notificationActors): array {
                 $category = ['technology', 'lifestyle', 'design'][$sequence->index % 3];
 
                 return [
                     'title' => Str::headline($category).' field note '.($sequence->index + 1),
                     'excerpt' => "A practical {$category} post with useful UI details for the feed demo.",
+                    'content' => "A practical {$category} post with useful UI details for the feed demo. This longer article explores the component patterns in more depth.",
                     'category' => $category,
+                    'author_id' => $notificationActors[$sequence->index % $notificationActors->count()]->id,
+                    'published' => true,
                 ];
             })
             ->create();
